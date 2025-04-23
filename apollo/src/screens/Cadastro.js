@@ -8,8 +8,8 @@ import {
   Text,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
 } from "react-native";
+import * as Animatable from "react-native-animatable";
 import { getAuth, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { getApp } from "firebase/app";
@@ -19,38 +19,28 @@ export default function Cadastrar({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const registerUser = async (email, password, nome) => {
+  const registerUser = async () => {
     const auth = getAuth(getApp());
     const firestore = getFirestore(getApp());
 
     try {
       const methods = await fetchSignInMethodsForEmail(auth, email);
       if (methods.length > 0) {
-        alert("Erro", "Este e-mail já está em uso. Tente fazer login ou use outro e-mail.");
+        Alert.alert("Erro", "Este e-mail já está em uso.");
         return;
       }
-
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
       await setDoc(doc(firestore, "users", user.uid), {
         uid: user.uid,
         nome,
         email,
       });
-
-      alert("Usuário cadastrado com sucesso! Você será redirecionado para o Login");
-      navigation.navigate("realizarLogin");
+      Alert.alert("Sucesso", "Cadastro realizado!", [
+        { text: "Ir para Login", onPress: () => navigation.navigate("realizarLogin") },
+      ]);
     } catch (error) {
-      alert("Erro", error.message);
-    }
-  };
-
-  const verificar = async () => {
-    if (email && password && nome) {
-      await registerUser(email, password, nome);
-    } else {
-      alert("Atenção, preencha todos os campos");
+      Alert.alert("Erro", error.message);
     }
   };
 
@@ -59,49 +49,50 @@ export default function Cadastrar({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.card}>
-          <Text style={styles.titulo}>Cadastro</Text>
+      {/* Header */}
+      <Animatable.View animation="fadeInLeft" delay={600} style={styles.header}>
+        <Text style={styles.headerText}>Cadastre-Se</Text>
+      </Animatable.View>
 
-          <TextInput
-            placeholder="Nome"
-            value={nome}
-            onChangeText={setNome}
-            style={styles.input}
-            placeholderTextColor="#aaa"
-          />
-          <TextInput
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            style={styles.input}
-            placeholderTextColor="#aaa"
-          />
-          <TextInput
-            placeholder="Senha"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            style={styles.input}
-            placeholderTextColor="#aaa"
-          />
+      {/* Form */}
+      <Animatable.View animation="fadeInUp" style={styles.formContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Nome de Usuário"
+          placeholderTextColor="#999"
+          value={nome}
+          onChangeText={setNome}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="E-mail"
+          placeholderTextColor="#999"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Senha"
+          placeholderTextColor="#999"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
 
-          <TouchableOpacity style={styles.botaoCadastrar} onPress={verificar}>
-            <Text style={styles.textoBotao}>Cadastrar</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.button} onPress={registerUser}>
+          <Text style={styles.buttonText}>Cadastrar</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.botaoVoltar}
-          onPress={() => navigation.navigate("realizarLogin")}
+          style={styles.backButton}
+          onPress={() => navigation.navigate("Login")}
         >
-          <Text style={styles.textoBotaoVoltar}>Voltar pro Login</Text>
+          <Text style={styles.backButtonText}>Já possui uma conta? <Text style = {styles.bold}>Voltar para o Login</Text>  </Text>
         </TouchableOpacity>
-      </ScrollView>
+        
+      </Animatable.View>
     </KeyboardAvoidingView>
   );
 }
@@ -109,58 +100,58 @@ export default function Cadastrar({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#00529F",
-    padding: 24,
+    backgroundColor: "#000000",
   },
-  titulo: {
-    fontSize: 30,
-    color: "#00529F",
+  header: {
+    marginTop: 60,
+    marginLeft: 20,
+    marginBottom: 10,
+  },
+  headerText: {
+    fontSize: 28,
     fontWeight: "bold",
-    textAlign: "center",
+    color: "#DAA520",
     marginBottom: 20,
   },
-  card: {
+  formContainer: {
+    flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-    marginBottom: 20,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingHorizontal: 20,
+    paddingTop: 30,
   },
   input: {
-    width: "100%",
-    height: 45,
-    borderColor: "#FEBE10",
-    borderWidth: 2,
+    borderBottomWidth: 2,
+    borderBottomColor: "#DAA520",
+    marginBottom: 25,
+    paddingVertical: 6,
+    fontSize: 16,
+    color: "#000",
+  },
+  button: {
+    backgroundColor: "#DAA520",
+    paddingVertical: 14,
     borderRadius: 8,
-    marginBottom: 15,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: "#333",
-    backgroundColor: "#F8F9FA",
-  },
-  botaoCadastrar: {
-    backgroundColor: "#FDB913",
-    padding: 14,
-    borderRadius: 50,
     alignItems: "center",
-    marginTop: 5,
+    marginTop: 10,
   },
-  textoBotao: {
-    color: "#00529F",
+  buttonText: {
+    color: "#000",
+    fontSize: 16,
     fontWeight: "bold",
-    fontSize: 16,
   },
-  botaoVoltar: {
-    marginTop: 12,
+  // Link de voltar
+  backButton: {
+    marginTop: 20,
     alignItems: "center",
   },
-  textoBotaoVoltar: {
-    color: "#FDB913",
-    fontWeight: "600",
-    fontSize: 15,
+  backButtonText: {
+    color: "#555",
+    fontSize: 14,
+  },
+  bold: {
+    fontWeight: "bold",
+    color: "#DAA520",
   },
 });

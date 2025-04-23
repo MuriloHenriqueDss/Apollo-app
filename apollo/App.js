@@ -10,6 +10,7 @@ import Home from './src/screens/Home';
 import Notificacao from './src/screens/Notificacao';
 import Direct from './src/screens/Direct';
 import Perfil from './src/screens/Perfil';
+import bemVindo from './src/screens/bemVindo';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -18,7 +19,7 @@ function BottomTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerShown: false, // Aqui garantimos que o header não apareça
+        headerShown: false, 
       }}
     >
       <Tab.Screen name="Inicio" component={Home} />
@@ -33,9 +34,9 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="bemVindo" component={bemVindo} />
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Cadastro" component={Cadastro} />
-        {/* Colocando BottomTabs dentro da tela Home */}
         <Stack.Screen name="Home" component={BottomTabs} />
       </Stack.Navigator>
     </NavigationContainer>
