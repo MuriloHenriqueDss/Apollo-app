@@ -176,7 +176,7 @@ const Home = () => {
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../../assets/img/Apollo.png')}
+        source={require('../../assets/img/logo-sem-fundo.png')}
         style={styles.logo}
       />
 
@@ -247,18 +247,17 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 150,
+    height: 150,
     alignSelf: 'center',
     borderRadius: 50,
     marginBottom: 20,
   },
   input: {
-    height: 50,
     borderColor: '#ba9839',
     borderWidth: 1,
     marginBottom: 10,
-    paddingLeft: 10,
+    padding: 10,
     color: '#fff',
     borderRadius: 6,
     marginBottom: 20,

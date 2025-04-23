@@ -33,7 +33,7 @@ const RealizarLogin = ({ navigation }) => {
         <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
-          placeholder="Digite um email..."
+          placeholder="Digite um email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"

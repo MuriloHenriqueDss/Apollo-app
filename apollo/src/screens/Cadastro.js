@@ -18,6 +18,7 @@ export default function Cadastrar({ navigation }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [bio, setBio] = useState("");
 
   const registerUser = async () => {
     const auth = getAuth(getApp());
@@ -29,15 +30,19 @@ export default function Cadastrar({ navigation }) {
         Alert.alert("Erro", "Este e-mail já está em uso.");
         return;
       }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+
       await setDoc(doc(firestore, "users", user.uid), {
         uid: user.uid,
         nome,
         email,
+        bio,
       });
+
       Alert.alert("Sucesso", "Cadastro realizado!", [
-        { text: "Ir para Login", onPress: () => navigation.navigate("realizarLogin") },
+        { text: "Ir para Login", onPress: () => navigation.navigate("Login") },
       ]);
     } catch (error) {
       Alert.alert("Erro", error.message);
@@ -49,12 +54,10 @@ export default function Cadastrar({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Header */}
       <Animatable.View animation="fadeInLeft" delay={600} style={styles.header}>
         <Text style={styles.headerText}>Cadastre-Se</Text>
       </Animatable.View>
 
-      {/* Form */}
       <Animatable.View animation="fadeInUp" style={styles.formContainer}>
         <TextInput
           style={styles.input}
@@ -80,6 +83,14 @@ export default function Cadastrar({ navigation }) {
           onChangeText={setPassword}
           secureTextEntry
         />
+        <TextInput
+          style={[styles.input, { height: 60 }]}
+          placeholder="Bio (opcional)"
+          placeholderTextColor="#999"
+          value={bio}
+          onChangeText={setBio}
+          multiline
+        />
 
         <TouchableOpacity style={styles.button} onPress={registerUser}>
           <Text style={styles.buttonText}>Cadastrar</Text>
@@ -89,9 +100,10 @@ export default function Cadastrar({ navigation }) {
           style={styles.backButton}
           onPress={() => navigation.navigate("Login")}
         >
-          <Text style={styles.backButtonText}>Já possui uma conta? <Text style = {styles.bold}>Voltar para o Login</Text>  </Text>
+          <Text style={styles.backButtonText}>
+            Já possui uma conta? <Text style={styles.bold}>Voltar para o Login</Text>
+          </Text>
         </TouchableOpacity>
-        
       </Animatable.View>
     </KeyboardAvoidingView>
   );
@@ -141,7 +153,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  // Link de voltar
   backButton: {
     marginTop: 20,
     alignItems: "center",
