@@ -1,13 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { db } from '../../firebaseConfig';
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  getDocs,
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { useNavigation } from '@react-navigation/native';
 
 const Notificacao = () => {
   const [notifications, setNotifications] = useState([]);
   const auth = getAuth();
   const user = auth.currentUser;
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (!user) return;
@@ -15,21 +29,25 @@ const Notificacao = () => {
     const unsubscribes = [];
 
     const fetchPostIds = async () => {
-      const postsSnap = await getDocs(query(collection(db, 'posts'), where('userId', '==', user.uid)));
+      const postsSnap = await getDocs(
+        query(collection(db, 'posts'), where('userId', '==', user.uid))
+      );
       const postDocs = postsSnap.docs;
-      const postIds = postDocs.map(doc => doc.id);
+      const postIds = postDocs.map((doc) => doc.id);
 
       if (postIds.length === 0) return;
 
+      // Comentários
       const unsubComments = onSnapshot(
         query(collection(db, 'comments'), where('postId', 'in', postIds)),
         (snapshot) => {
-          const comments = snapshot.docs.map(doc => {
+          const comments = snapshot.docs.map((doc) => {
             const data = doc.data();
             return {
               id: `comment-${doc.id}`,
               type: 'comment',
               fromUserName: data.userName,
+              fromUserId: data.userId,
               createdAt: data.createdAt?.toDate() || new Date(),
             };
           });
@@ -38,18 +56,20 @@ const Notificacao = () => {
       );
       unsubscribes.push(unsubComments);
 
-      postDocs.forEach(doc => {
+      // Likes
+      postDocs.forEach((doc) => {
         const postId = doc.id;
         const unsubPost = onSnapshot(doc.ref, (docSnap) => {
           const postData = docSnap.data();
           const likes = Array.isArray(postData.likes) ? postData.likes : [];
 
           const likeNotifications = likes
-            .filter(like => like.userId !== user.uid)
-            .map(like => ({
+            .filter((like) => like.userId !== user.uid)
+            .map((like) => ({
               id: `like-${postId}-${like.userId}`,
               type: 'like',
-              fromUserName: like.userName || 'Someone',
+              fromUserName: like.userName || 'Alguém',
+              fromUserId: like.userId,
               createdAt: like.createdAt?.toDate() || new Date(),
             }));
 
@@ -62,15 +82,15 @@ const Notificacao = () => {
 
     fetchPostIds();
 
-    return () => unsubscribes.forEach(unsub => unsub());
+    return () => unsubscribes.forEach((unsub) => unsub());
   }, [user]);
 
   const updateNotifications = (newItems) => {
-    setNotifications(prev => {
-      const existingIds = new Set(prev.map(n => n.id));
+    setNotifications((prev) => {
+      const existingIds = new Set(prev.map((n) => n.id));
       const merged = [...prev];
 
-      newItems.forEach(item => {
+      newItems.forEach((item) => {
         if (!existingIds.has(item.id)) {
           merged.push(item);
         }
@@ -81,28 +101,37 @@ const Notificacao = () => {
   };
 
   const renderMessage = (item) => {
-    switch (item.type) {
-      case 'like':
-        return `${item.fromUserName} curtiu sua postagem`;
-      case 'comment':
-        return `${item.fromUserName} comentou em sua postagem`;
-      default:
-        return '';
-    }
+    return (
+      <Text style={styles.notificationText}>
+        <Text style={styles.userName}>{item.fromUserName}</Text>{' '}
+        {item.type === 'like'
+          ? 'curtiu sua postagem.'
+          : 'comentou em sua postagem.'}
+      </Text>
+    );
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Notificações</Text>
+      <Text style={styles.title}>🔔 Notificações</Text>
       {notifications.length === 0 ? (
-        <Text>Não houve nenhuma notificação</Text>
+        <Text style={styles.emptyMessage}>
+          Você ainda não tem nenhuma notificação.
+        </Text>
       ) : (
         <FlatList
           data={notifications}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <View style={styles.notificationContainer}>
-              <Text>{renderMessage(item)}</Text>
+            <View
+              style={[
+                styles.notificationContainer,
+                item.type === 'like'
+                  ? styles.likeBorder
+                  : styles.commentBorder,
+              ]}
+            >
+              {renderMessage(item)}
             </View>
           )}
         />
@@ -114,18 +143,47 @@ const Notificacao = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
     padding: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 10,
+    color: '#ba9839',
+    marginBottom: 20,
+    alignSelf: 'center',
   },
   notificationContainer: {
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: '#f4f4f4',
-    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  likeBorder: {
+    borderLeftColor: '#e7b02e',
+  },
+  commentBorder: {
+    borderLeftColor: '#51a1ff',
+  },
+  notificationText: {
+    color: '#fff',
+    fontSize: 15,
+  },
+  userName: {
+    color: '#ba9839',
+    fontWeight: 'bold',
+  },
+  emptyMessage: {
+    color: '#777',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 50,
   },
 });
 
