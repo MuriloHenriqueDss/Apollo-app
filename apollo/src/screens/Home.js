@@ -7,11 +7,14 @@ import {
   query,
   orderBy,
   doc,
+  getDoc,
   updateDoc,
-  where
+  setDoc,
+  deleteDoc,
+  where,
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-
 import { getAuth } from 'firebase/auth';
 
 const Home = () => {
@@ -20,19 +23,42 @@ const Home = () => {
   const [comments, setComments] = useState({});
   const [newComments, setNewComments] = useState({});
   const [following, setFollowing] = useState([]);
+  const [userNome, setUserNome] = useState('');
 
-  const auth = getAuth();  
+  const auth = getAuth();
   const user = auth.currentUser;
+
+  const fetchUserNome = async () => {
+    if (!user) return;
+
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        setUserNome(userDoc.data().nome);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar o nome do usuário:', error);
+    }
+  };
+
+  const fetchFollowing = () => {
+    if (!user) return;
+
+    const followingRef = collection(db, 'follows', user.uid, 'following');
+    onSnapshot(followingRef, (snapshot) => {
+      const followedIds = snapshot.docs.map(doc => doc.id);
+      setFollowing(followedIds);
+    });
+  };
 
   const handleNewPost = async () => {
     if (newPost.trim() === '' || !user) return;
 
     const post = {
       userId: user.uid,
-      userName: user.email,
+      userName: userNome,
       content: newPost,
       createdAt: new Date(),
-      likes: 0,
     };
 
     try {
@@ -47,24 +73,41 @@ const Home = () => {
   const fetchPosts = async () => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
-    const postsList = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const postsList = await Promise.all(
+      querySnapshot.docs.map(async docSnap => {
+        const post = { id: docSnap.id, ...docSnap.data(), likes: 0, likedByCurrentUser: false };
+
+        const likesSnapshot = await getDocs(collection(db, 'posts', post.id, 'likes'));
+        post.likes = likesSnapshot.size;
+
+        const userLikeDoc = await getDoc(doc(db, 'posts', post.id, 'likes', user.uid));
+        post.likedByCurrentUser = userLikeDoc.exists();
+
+        return post;
+      })
+    );
 
     setPosts(postsList);
-
     postsList.forEach(post => fetchComments(post.id));
   };
 
-  const handleLike = async (postId, currentLikes) => {
-    const postRef = doc(db, 'posts', postId);
-    try {
-      await updateDoc(postRef, { likes: currentLikes + 1 });
-      fetchPosts();
-    } catch (error) {
-      console.error('Erro ao dar like:', error);
+  const handleLike = async (postId) => {
+    if (!user) return;
+
+    const likeRef = doc(db, 'posts', postId, 'likes', user.uid);
+    const likeSnap = await getDoc(likeRef);
+
+    if (likeSnap.exists()) {
+      await deleteDoc(likeRef);
+    } else {
+      await setDoc(likeRef, {
+        userId: user.uid,
+        userName: userNome,
+        createdAt: new Date()
+      });
     }
+
+    fetchPosts();
   };
 
   const fetchComments = async (postId) => {
@@ -89,7 +132,7 @@ const Home = () => {
     const comment = {
       postId,
       userId: user.uid,
-      userName: user.email,
+      userName: userNome,
       content,
       createdAt: new Date(),
     };
@@ -104,20 +147,36 @@ const Home = () => {
   };
 
   const handleFollow = async (userIdToFollow) => {
-    if (!following.includes(userIdToFollow)) {
-      setFollowing(prev => [...prev, userIdToFollow]);
-      // Aqui você pode adicionar lógica para salvar o follow no Firebase
+    if (!user) return;
+
+    const followRef = doc(db, 'follows', user.uid, 'following', userIdToFollow);
+    const docSnap = await getDoc(followRef);
+
+    try {
+      if (docSnap.exists()) {
+        // Deixar de seguir
+        await deleteDoc(followRef);
+      } else {
+        // Começar a seguir
+        await setDoc(followRef, {
+          followedAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao seguir/desseguir:', error);
     }
   };
 
   useEffect(() => {
+    fetchUserNome();
     fetchPosts();
+    fetchFollowing();
   }, []);
 
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../../assets/img/Apollo.png')} // Verifique o caminho correto
+        source={require('../../assets/img/Apollo.png')}
         style={styles.logo}
       />
 
@@ -128,7 +187,9 @@ const Home = () => {
         value={newPost}
         onChangeText={setNewPost}
       />
-      <Button title="Postar" onPress={handleNewPost} color="#ba9839" />
+      <TouchableOpacity style={styles.postButton} onPress={handleNewPost}>
+        <Text style={styles.postButtonText}>Postar</Text>
+      </TouchableOpacity>
 
       <FlatList
         data={posts}
@@ -147,8 +208,10 @@ const Home = () => {
             <Text style={styles.postContent}>{item.content}</Text>
             <Text style={styles.postLikes}>{item.likes} curtidas</Text>
 
-            <TouchableOpacity onPress={() => handleLike(item.id, item.likes)}>
-              <Text style={styles.likeButton}>Curtir</Text>
+            <TouchableOpacity onPress={() => handleLike(item.id)}>
+              <Text style={[styles.likeButton, item.likedByCurrentUser && { color: '#888' }]}> 
+                {item.likedByCurrentUser ? 'Curtido' : 'Curtir'}
+              </Text>
             </TouchableOpacity>
 
             <TextInput
@@ -158,7 +221,9 @@ const Home = () => {
               value={newComments[item.id] || ''}
               onChangeText={(text) => setNewComments(prev => ({ ...prev, [item.id]: text }))}
             />
-            <Button title="Comentar" onPress={() => handleAddComment(item.id)} color="#ba9839" />
+            <TouchableOpacity style={styles.commentButton} onPress={() => handleAddComment(item.id)}>
+              <Text style={styles.commentButtonText}>Comentar</Text>
+            </TouchableOpacity>
 
             <View style={styles.commentList}>
               {(comments[item.id] || []).map((comment, index) => (
@@ -182,20 +247,34 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   logo: {
-    width: 100, // Ajuste o tamanho da logo conforme necessário
-    height: 100, // Ajuste o tamanho da logo conforme necessário
-    alignSelf: 'center', // Centraliza a logo
-    borderRadius: 50, // Deixa a logo redonda
-    marginBottom: 20, // Espaço abaixo da logo
+    width: 100,
+    height: 100,
+    alignSelf: 'center',
+    borderRadius: 50,
+    marginBottom: 20,
   },
   input: {
-    height: 40,
+    height: 50,
     borderColor: '#ba9839',
     borderWidth: 1,
     marginBottom: 10,
     paddingLeft: 10,
     color: '#fff',
     borderRadius: 6,
+    marginBottom: 20,
+    fontSize: 16,
+  },
+  postButton: {
+    backgroundColor: '#ba9839',
+    padding: 15,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  postButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   postContainer: {
     backgroundColor: '#1a1a1a',
@@ -219,38 +298,50 @@ const styles = StyleSheet.create({
   },
   postContent: {
     color: '#fff',
-    marginTop: 8,
-    fontSize: 16,
+    marginTop: 10,
+    fontSize: 15,
   },
   postLikes: {
-    color: '#888',
-    marginTop: 6,
+    color: '#aaa',
+    marginTop: 5,
+    fontSize: 13,
   },
   likeButton: {
-    color: '#e7b02e',
-    marginTop: 10,
+    color: '#ba9839',
+    marginTop: 5,
     fontWeight: 'bold',
+    fontSize: 14,
   },
   commentInput: {
-    height: 35,
+    height: 40,
     borderColor: '#555',
     borderWidth: 1,
     borderRadius: 6,
-    paddingLeft: 8,
-    color: '#fff',
+    paddingHorizontal: 10,
     marginTop: 10,
+    color: '#fff',
+    fontSize: 14,
+  },
+  commentButton: {
+    backgroundColor: '#ba9839',
+    padding: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  commentButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   commentList: {
     marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    paddingTop: 8,
   },
   commentItem: {
     backgroundColor: '#2a2a2a',
     padding: 8,
-    borderRadius: 8,
-    marginBottom: 6,
+    borderRadius: 6,
+    marginBottom: 5,
   },
   commentAuthor: {
     color: '#ba9839',
@@ -259,8 +350,9 @@ const styles = StyleSheet.create({
   },
   commentContent: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
   },
 });
 
 export default Home;
+

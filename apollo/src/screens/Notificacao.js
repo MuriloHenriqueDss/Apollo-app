@@ -1,37 +1,112 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
-import { db, collection, query, orderBy, onSnapshot } from '../../firebaseConfig'; // Corrigido para usar Firebase modular
+import { db } from '../../firebaseConfig';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const Notificacao = () => {
   const [notifications, setNotifications] = useState([]);
+  const auth = getAuth();
+  const user = auth.currentUser;
 
   useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    if (!user) return;
 
-    // Usando onSnapshot corretamente com a API modular
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const notificationsList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setNotifications(notificationsList);
+    const unsubscribes = [];
+
+    const fetchPostIds = async () => {
+      const postsSnap = await getDocs(query(collection(db, 'posts'), where('userId', '==', user.uid)));
+      const postDocs = postsSnap.docs;
+      const postIds = postDocs.map(doc => doc.id);
+
+      if (postIds.length === 0) return;
+
+      const unsubComments = onSnapshot(
+        query(collection(db, 'comments'), where('postId', 'in', postIds)),
+        (snapshot) => {
+          const comments = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: `comment-${doc.id}`,
+              type: 'comment',
+              fromUserName: data.userName,
+              createdAt: data.createdAt?.toDate() || new Date(),
+            };
+          });
+          updateNotifications(comments);
+        }
+      );
+      unsubscribes.push(unsubComments);
+
+      postDocs.forEach(doc => {
+        const postId = doc.id;
+        const unsubPost = onSnapshot(doc.ref, (docSnap) => {
+          const postData = docSnap.data();
+          const likes = Array.isArray(postData.likes) ? postData.likes : [];
+
+          const likeNotifications = likes
+            .filter(like => like.userId !== user.uid)
+            .map(like => ({
+              id: `like-${postId}-${like.userId}`,
+              type: 'like',
+              fromUserName: like.userName || 'Someone',
+              createdAt: like.createdAt?.toDate() || new Date(),
+            }));
+
+          updateNotifications(likeNotifications);
+        });
+
+        unsubscribes.push(unsubPost);
+      });
+    };
+
+    fetchPostIds();
+
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [user]);
+
+  const updateNotifications = (newItems) => {
+    setNotifications(prev => {
+      const existingIds = new Set(prev.map(n => n.id));
+      const merged = [...prev];
+
+      newItems.forEach(item => {
+        if (!existingIds.has(item.id)) {
+          merged.push(item);
+        }
+      });
+
+      return merged.sort((a, b) => b.createdAt - a.createdAt);
     });
+  };
 
-    return () => unsubscribe();
-  }, []);
+  const renderMessage = (item) => {
+    switch (item.type) {
+      case 'like':
+        return `${item.fromUserName} curtiu sua postagem`;
+      case 'comment':
+        return `${item.fromUserName} comentou em sua postagem`;
+      default:
+        return '';
+    }
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Notificações</Text>
-      <FlatList
-        data={notifications}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.notificationContainer}>
-            <Text>{item.message}</Text>
-          </View>
-        )}
-      />
+      {notifications.length === 0 ? (
+        <Text>Não houve nenhuma notificação</Text>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.notificationContainer}>
+              <Text>{renderMessage(item)}</Text>
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 };
