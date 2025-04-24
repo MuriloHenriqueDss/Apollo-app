@@ -1,3 +1,5 @@
+//João Gustavo e Murilo Henrique
+
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';

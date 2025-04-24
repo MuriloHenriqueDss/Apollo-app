@@ -1,3 +1,5 @@
+//João Gustavo e Murilo Henrique
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

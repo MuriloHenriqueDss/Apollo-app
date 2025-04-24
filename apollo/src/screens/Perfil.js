@@ -1,3 +1,5 @@
+//João Gustavo e Murilo Henrique
+
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { getFirestore, doc, getDoc } from "firebase/firestore";

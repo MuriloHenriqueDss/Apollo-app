@@ -1,3 +1,5 @@
+//João Gustavo e Murilo Henrique
+
 import React from "react";
 import { StyleSheet, Text, View, Image, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -11,7 +13,7 @@ export default function BemVindo() {
             <View style={styles.imageContainer}>
                 <Animatable.Image 
                 animation="flipInX"
-                    source={require("../../assets/img/logo-sem-fundo.png")} 
+                    source={require("../assets/img/logo-sem-fundo.png")} 
                     style={styles.image} 
                     resizeMode="contain" 
                 />

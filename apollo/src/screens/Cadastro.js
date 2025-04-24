@@ -1,3 +1,5 @@
+//João Gustavo e Murilo Henrique
+
 import React, { useState } from "react";
 import {
   View,
@@ -27,7 +29,7 @@ export default function Cadastrar({ navigation }) {
     try {
       const methods = await fetchSignInMethodsForEmail(auth, email);
       if (methods.length > 0) {
-        Alert.alert("Erro", "Este e-mail já está em uso.");
+        showAlert("Erro", "Este e-mail já está em uso.");
         return;
       }
 
@@ -41,11 +43,21 @@ export default function Cadastrar({ navigation }) {
         bio,
       });
 
-      Alert.alert("Sucesso", "Cadastro realizado!", [
+      showAlert("Sucesso", "Cadastro realizado!", [
         { text: "Ir para Login", onPress: () => navigation.navigate("Login") },
       ]);
     } catch (error) {
-      Alert.alert("Erro", error.message);
+      showAlert("Erro", error.message);
+    }
+  };
+
+  const showAlert = (title, message, buttons) => {
+    if (Platform.OS === "web") {
+      // Use window.alert on web
+      window.alert(`${title}: ${message}`);
+    } else {
+      // Use Alert.alert on mobile
+      Alert.alert(title, message, buttons);
     }
   };
 

@@ -1,3 +1,5 @@
+//João Gustavo e Murilo Henrique
+
 import React from 'react';
 import { View, Text, ActivityIndicator, Alert, Platform } from 'react-native';
 import { getAuth, signOut } from 'firebase/auth';
@@ -13,7 +15,7 @@ export default function Logout({ navigation }) {
         if (confirmation) {
           signOut(auth)
             .then(() => {
-              navigation.goBack();
+              navigation.replace("Login");
             })
             .catch((error) => {
               console.error(error);

@@ -1,3 +1,5 @@
+//João Gustavo e Murilo Henrique
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import {
@@ -181,8 +183,8 @@ const Home = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../../assets/img/logo-sem-fundo.png')}
-        style={styles.logo}
+                    source={require("../assets/img/logo-sem-fundo.png")} 
+                    style={styles.logo}
       />
 
       <TextInput

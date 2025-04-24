@@ -1,3 +1,4 @@
+//João Gustavo e Murilo Henrique
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, addDoc, query, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
