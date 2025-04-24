@@ -156,7 +156,7 @@ const Home = ({ navigation }) => {
           onChangeText={setNewTitle}
         />
         <TextInput
-          style={styles.input}
+          style={styles.inputtext}
           placeholder="O que você está pensando?"
           placeholderTextColor="#888"
           value={newPost}
@@ -238,6 +238,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
+    borderColor: '#ba9839',
+    borderWidth: 1,
+    padding: 10,
+    color: '#fff',
+    borderRadius: 6,
+    marginBottom: 10,
+    fontSize: 16,
+  },
+  inputtext: {
     borderColor: '#ba9839',
     borderWidth: 1,
     padding: 10,
