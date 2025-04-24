@@ -1,12 +1,12 @@
 //João Gustavo e Murilo Henrique
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
-  TouchableOpacity,
+  Animated,
 } from 'react-native';
 import { db } from '../../firebaseConfig';
 import {
@@ -17,13 +17,15 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { useNavigation } from '@react-navigation/native';
 
 const Notificacao = () => {
   const [notifications, setNotifications] = useState([]);
   const auth = getAuth();
   const user = auth.currentUser;
-  const navigation = useNavigation();
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [contentHeight, setContentHeight] = useState(1);
+  const [scrollViewHeight, setScrollViewHeight] = useState(1);
 
   useEffect(() => {
     if (!user) return;
@@ -39,7 +41,6 @@ const Notificacao = () => {
 
       if (postIds.length === 0) return;
 
-      // Comentários
       const unsubComments = onSnapshot(
         query(collection(db, 'comments'), where('postId', 'in', postIds)),
         (snapshot) => {
@@ -58,7 +59,6 @@ const Notificacao = () => {
       );
       unsubscribes.push(unsubComments);
 
-      // Likes
       postDocs.forEach((doc) => {
         const postId = doc.id;
         const unsubPost = onSnapshot(doc.ref, (docSnap) => {
@@ -113,31 +113,54 @@ const Notificacao = () => {
     );
   };
 
+  // Cálculo da barra
+  const scrollBarHeight = scrollViewHeight / contentHeight * scrollViewHeight;
+  const scrollIndicatorPosition = Animated.multiply(
+    scrollY,
+    scrollViewHeight / contentHeight
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🔔 Notificações</Text>
-      {notifications.length === 0 ? (
-        <Text style={styles.emptyMessage}>
-          Você ainda não tem nenhuma notificação.
-        </Text>
-      ) : (
-        <FlatList
+
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        <Animated.FlatList
           data={notifications}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View
               style={[
                 styles.notificationContainer,
-                item.type === 'like'
-                  ? styles.likeBorder
-                  : styles.commentBorder,
+                item.type === 'likes' ? styles.likeBorder : styles.commentBorder,
               ]}
             >
               {renderMessage(item)}
             </View>
           )}
+          contentContainerStyle={{ paddingBottom: 30 }}
+          showsVerticalScrollIndicator={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false }
+          )}
+          onContentSizeChange={(w, h) => setContentHeight(h)}
+          onLayout={(e) => setScrollViewHeight(e.nativeEvent.layout.height)}
         />
-      )}
+
+        {/* Barra de rolagem customizada */}
+        <View style={styles.scrollTrack}>
+          <Animated.View
+            style={[
+              styles.scrollBar,
+              {
+                height: scrollBarHeight,
+                transform: [{ translateY: scrollIndicatorPosition }],
+              },
+            ]}
+          />
+        </View>
+      </View>
     </View>
   );
 };
@@ -153,6 +176,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ba9839',
     marginBottom: 20,
+    marginTop: 20,
     alignSelf: 'center',
   },
   notificationContainer: {
@@ -186,6 +210,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 50,
+  },
+  scrollTrack: {
+    width: 6,
+    backgroundColor: '#333',
+    borderRadius: 3,
+    marginLeft: 8,
+  },
+  scrollBar: {
+    width: 6,
+    backgroundColor: '#ba9839',
+    borderRadius: 3,
   },
 });
 
