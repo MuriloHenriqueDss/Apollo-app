@@ -48,3 +48,13 @@ Antes de começar, certifique-se de que você tenha os seguintes requisitos inst
    ```bash
    git clone https://github.com/MuriloHenriqueDss/Apollo.git
    cd Apollo
+
+2. **Instale as Dependências**
+
+   Instale as dependências necessárias com o seguinte comando:
+
+   ```bash
+   npm install
+
+3. **Rodar o Projeto**
+npx expo start
