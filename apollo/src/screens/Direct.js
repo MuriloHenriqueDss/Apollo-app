@@ -1,35 +1,48 @@
-//João Gustavo e Murilo Henrique
+// João Gustavo e Murilo Henrique
 
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ScrollView } from "react-native";
-import { getFirestore, collection, getDocs, addDoc, query, where, onSnapshot } from "firebase/firestore";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  ScrollView,
+} from "react-native";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  addDoc,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getApp } from "firebase/app";
 
-// Função principal para a tela de Direct
 export default function Direct() {
   const [usuarios, setUsuarios] = useState([]);
-  const [conversas, setConversas] = useState([]); // Lista de conversas já iniciadas
-  const [conversaAtiva, setConversaAtiva] = useState(null); // Controla a conversa ativa
+  const [conversas, setConversas] = useState([]);
+  const [conversaAtiva, setConversaAtiva] = useState(null);
   const [mensagens, setMensagens] = useState([]);
-  const [novaMensagem, setNovaMensagem] = useState(""); 
+  const [novaMensagem, setNovaMensagem] = useState("");
   const [novoUsuarioId, setNovoUsuarioId] = useState(null);
-  const [mostrarListaUsuarios, setMostrarListaUsuarios] = useState(false); // Controla a exibição da lista de usuários
+  const [mostrarListaUsuarios, setMostrarListaUsuarios] = useState(false);
 
-  // Inicializa Firebase Firestore
   const db = getFirestore(getApp());
   const auth = getAuth(getApp());
 
-  // Função para buscar os usuários da base de dados
   useEffect(() => {
     const fetchUsuarios = async () => {
       try {
         const usersRef = collection(db, "users");
         const snapshot = await getDocs(usersRef);
-
-        const usuariosData = snapshot.docs.map(doc => ({
+        const usuariosData = snapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
         setUsuarios(usuariosData);
       } catch (error) {
@@ -38,84 +51,95 @@ export default function Direct() {
     };
 
     fetchUsuarios();
-    fetchConversas();
-  }, []);
 
-  // Função para buscar conversas já iniciadas
-  const fetchConversas = async () => {
-    try {
-      const convRef = collection(db, "mensagens");
-      const q = query(
-        convRef,
-        where("usuarios", "array-contains", auth.currentUser.uid)
-      );
-      
-      const snapshot = await getDocs(q);
-      const conversasData = snapshot.docs.map(doc => ({
+    const convRef = collection(db, "conversas");
+    const q = query(convRef, where("usuarios", "array-contains", auth.currentUser.uid));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const conversasData = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
       setConversas(conversasData);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const iniciarChat = async (usuarioId) => {
+    try {
+      const q = query(
+        collection(db, "conversas"),
+        where("usuarios", "array-contains", auth.currentUser.uid)
+      );
+      const snapshot = await getDocs(q);
+
+      let conversaExistente = null;
+
+      snapshot.forEach((doc) => {
+        const usuarios = doc.data().usuarios;
+        if (usuarios.includes(usuarioId) && usuarios.length === 2) {
+          conversaExistente = doc;
+        }
+      });
+
+      let conversaId;
+      if (conversaExistente) {
+        conversaId = conversaExistente.id;
+      } else {
+        const novaConversa = await addDoc(collection(db, "conversas"), {
+          usuarios: [auth.currentUser.uid, usuarioId],
+          createdAt: new Date(),
+        });
+        conversaId = novaConversa.id;
+      }
+
+      setConversaAtiva(conversaId);
+      setNovoUsuarioId(usuarioId);
+      fetchMensagens(conversaId);
     } catch (error) {
-      console.error("Erro ao carregar conversas:", error);
+      console.error("Erro ao iniciar conversa:", error);
     }
   };
 
-  // Função para iniciar o chat com um usuário
-  const iniciarChat = (usuarioId) => {
-    setConversaAtiva(usuarioId); // Define o usuário com quem está conversando
-    setMensagens([]); // Limpa as mensagens antigas ao iniciar um novo chat
-    setNovoUsuarioId(usuarioId); // Armazena o ID do usuário com quem vai conversar
-    fetchMensagens(usuarioId); // Busca as mensagens do usuário selecionado
-  };
-
-  // Função para buscar mensagens no Firestore
-  const fetchMensagens = (usuarioId) => {
+  const fetchMensagens = (conversaId) => {
     const q = query(
-      collection(db, "mensagens"),
-      where("usuarios", "array-contains", usuarioId)
+      collection(db, `conversas/${conversaId}/mensagens`),
+      orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const mensagensData = [];
-      querySnapshot.forEach((doc) => {
-        mensagensData.push(doc.data());
-      });
+      const mensagensData = querySnapshot.docs.map((doc) => doc.data());
       setMensagens(mensagensData);
     });
 
     return unsubscribe;
   };
 
-  // Função para enviar mensagem
   const enviarMensagem = async () => {
     if (novaMensagem.trim()) {
       try {
-        await addDoc(collection(db, "mensagens"), {
+        await addDoc(collection(db, `conversas/${conversaAtiva}/mensagens`), {
           texto: novaMensagem,
           sender: auth.currentUser.uid,
-          usuarios: [auth.currentUser.uid, novoUsuarioId],
           createdAt: new Date(),
         });
 
-        setNovaMensagem(""); // Limpa o campo de texto após o envio
+        setNovaMensagem("");
       } catch (error) {
         console.error("Erro ao enviar mensagem:", error);
       }
     }
   };
 
-  // Função para exibir as mensagens de chat
   const renderItem = ({ item }) => {
-    // Buscar o nome do usuário com base no sender (ID do usuário)
-    const usuarioConversando = usuarios.find(user => user.id === item.sender);
+    const usuarioConversando = usuarios.find((user) => user.id === item.sender);
     const nomeUsuario = usuarioConversando ? usuarioConversando.nome : "Desconhecido";
-    
+
     return (
       <View style={item.sender === auth.currentUser.uid ? styles.mensagemEu : styles.mensagemOutro}>
         <Text style={styles.mensagemTexto}>
-          {item.sender === auth.currentUser.uid ? "Você: " : `${nomeUsuario}: `}
-          {item.texto}
+          {item.sender === auth.currentUser.uid ? "Você: " : `${nomeUsuario}: `}{item.texto}
         </Text>
       </View>
     );
@@ -124,15 +148,17 @@ export default function Direct() {
   return (
     <View style={styles.container}>
       {conversaAtiva ? (
-        // Exibe o chat quando uma conversa está ativa
         <View style={styles.chatBox}>
           <TouchableOpacity style={styles.botaoVoltar} onPress={() => setConversaAtiva(null)}>
             <Text style={styles.botaoTexto}>Voltar</Text>
           </TouchableOpacity>
-          
-          <Text style={styles.chatHeader}>Conversando com {conversaAtiva}</Text>
-          
-          {/* Lista de mensagens */}
+
+          <Text style={styles.chatHeader}>
+            Conversando com {
+              usuarios.find((user) => user.id === novoUsuarioId)?.nome || "Usuário"
+            }
+          </Text>
+
           <FlatList
             data={mensagens}
             renderItem={renderItem}
@@ -140,7 +166,6 @@ export default function Direct() {
             inverted
           />
 
-          {/* Campo de texto para enviar nova mensagem */}
           <TextInput
             style={styles.inputMensagem}
             value={novaMensagem}
@@ -149,20 +174,18 @@ export default function Direct() {
             placeholderTextColor="#888"
           />
 
-          {/* Botão de enviar mensagem */}
           <TouchableOpacity style={styles.botaoEnviar} onPress={enviarMensagem}>
             <Text style={styles.botaoTexto}>Enviar Mensagem</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        // Exibe o botão de iniciar conversa ou lista de conversas
         <View style={styles.listaUsuarios}>
-          {conversas.length > 0 && (
+          {!mostrarListaUsuarios && conversas.length > 0 && (
             <View style={styles.conversasBox}>
               <Text style={styles.tituloConversas}>Conversas Ativas:</Text>
               {conversas.map((conversa) => {
-                const outroUsuario = conversa.usuarios.find(user => user !== auth.currentUser.uid);
-                const usuario = usuarios.find(user => user.id === outroUsuario);
+                const outroUsuario = conversa.usuarios.find((user) => user !== auth.currentUser.uid);
+                const usuario = usuarios.find((user) => user.id === outroUsuario);
                 return (
                   <TouchableOpacity
                     key={conversa.id}
@@ -177,28 +200,30 @@ export default function Direct() {
               })}
             </View>
           )}
+
           {!mostrarListaUsuarios ? (
-            // Exibe apenas o botão para começar uma nova conversa
-            <TouchableOpacity
-              style={styles.botaoNovaConversa}
-              onPress={() => setMostrarListaUsuarios(true)}
-            >
+            <TouchableOpacity style={styles.botaoNovaConversa} onPress={() => setMostrarListaUsuarios(true)}>
               <Text style={styles.botaoTexto}>Começar Nova Conversa</Text>
             </TouchableOpacity>
           ) : (
-            // Exibe a lista de usuários com rolagem
-            <ScrollView style={styles.scrollContainer}>
-              <Text style={styles.tituloUsuarios}>Escolha com quem quer conversar</Text>
-              {usuarios.map((usuario) => (
-                <TouchableOpacity
-                  key={usuario.id}
-                  style={styles.usuarioBox}
-                  onPress={() => iniciarChat(usuario.id)}
-                >
-                  <Text style={styles.usuarioNome}>{usuario.nome}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity style={styles.botaoVoltar} onPress={() => setMostrarListaUsuarios(false)}>
+                <Text style={styles.botaoTexto}>Voltar</Text>
+              </TouchableOpacity>
+
+              <ScrollView style={styles.scrollContainer}>
+                <Text style={styles.tituloUsuarios}>Escolha com quem quer conversar</Text>
+                {usuarios.map((usuario) => (
+                  <TouchableOpacity
+                    key={usuario.id}
+                    style={styles.usuarioBox}
+                    onPress={() => iniciarChat(usuario.id)}
+                  >
+                    <Text style={styles.usuarioNome}>{usuario.nome}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           )}
         </View>
       )}
@@ -206,7 +231,6 @@ export default function Direct() {
   );
 }
 
-// Estilos para a tela
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -240,7 +264,7 @@ const styles = StyleSheet.create({
   },
   mensagemTexto: {
     fontSize: 16,
-    color: "#fff", // Mensagens em branco
+    color: "#fff",
   },
   inputMensagem: {
     backgroundColor: "#333",
@@ -258,17 +282,18 @@ const styles = StyleSheet.create({
   botaoTexto: {
     color: "#000",
     fontSize: 16,
+    fontWeight: "bold",
   },
   botaoNovaConversa: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#DAA520",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
   },
   botaoVoltar: {
-    backgroundColor: "#f44336", 
-    padding: 10, 
-    borderRadius: 8, 
+    backgroundColor: "#DAA520",
+    padding: 10,
+    borderRadius: 8,
     marginBottom: 10,
     alignItems: "center",
   },
@@ -286,20 +311,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   mensagemEu: {
-    backgroundColor: "#007AFF", 
-    alignSelf: "flex-end", 
-    padding: 10, 
+    backgroundColor: "gray",
+    alignSelf: "flex-end",
+    padding: 10,
     borderRadius: 8,
     marginBottom: 5,
   },
   mensagemOutro: {
-    backgroundColor: "#34C759", 
-    alignSelf: "flex-start", 
-    padding: 10, 
+    backgroundColor: "gray",
+    alignSelf: "flex-start",
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 5,
+    marginBottom: 10,
   },
   scrollContainer: {
-    maxHeight: 400, // Defina uma altura máxima para a rolagem
+    maxHeight: 400,
   },
 });
