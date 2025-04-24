@@ -25,38 +25,54 @@ export default function Cadastrar({ navigation }) {
   const registerUser = async () => {
     const auth = getAuth(getApp());
     const firestore = getFirestore(getApp());
-
+  
+    // Validação dos campos obrigatórios
+    if (!nome || !email || !password) {
+      showAlert("Erro", "Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+  
     try {
       const methods = await fetchSignInMethodsForEmail(auth, email);
       if (methods.length > 0) {
         showAlert("Erro", "Este e-mail já está em uso.");
         return;
       }
-
+  
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
+  
       await setDoc(doc(firestore, "users", user.uid), {
         uid: user.uid,
         nome,
         email,
         bio,
       });
-
-      showAlert("Sucesso", "Cadastro realizado!", [
-        { text: "Ir para Login", onPress: () => navigation.navigate("Login") },
-      ]);
+  
+      if (Platform.OS === "web") {
+        window.alert("Cadastro realizado com sucesso! Faça login agora.");
+        navigation.navigate("Login");
+      } else {
+        showAlert("Sucesso", "Cadastro realizado!", [
+          { text: "Ir para Login", onPress: () => navigation.navigate("Login") },
+        ]);
+      }
     } catch (error) {
-      showAlert("Erro", error.message);
+      let message = "Ocorreu um erro.";
+      if (error.code === "auth/weak-password") {
+        message = "A senha deve ter pelo menos 6 caracteres.";
+      } else if (error.code === "auth/invalid-email") {
+        message = "O e-mail informado é inválido.";
+      }
+      showAlert("Erro", message);
     }
   };
+  
 
   const showAlert = (title, message, buttons) => {
     if (Platform.OS === "web") {
-      // Use window.alert on web
       window.alert(`${title}: ${message}`);
     } else {
-      // Use Alert.alert on mobile
       Alert.alert(title, message, buttons);
     }
   };

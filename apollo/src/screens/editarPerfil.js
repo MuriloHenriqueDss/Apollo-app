@@ -1,4 +1,4 @@
-//João Gustavo e Murilo Henrique
+// João Gustavo e Murilo Henrique
 
 import React, { useState, useEffect } from "react";
 import {
@@ -11,7 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from "react-native";
+import { launchImageLibrary } from "react-native-image-picker";
 import { getApp } from "firebase/app";
 import {
   getAuth,
@@ -19,13 +21,27 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from "firebase/auth";
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  updateDoc,
+  query,
+  where,
+  collection,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+
+// Imagem local como padrão
+const imagemPadrao = require("../assets/img/0d64989794b1a4c9d89bff571d3d5842.jpg");
 
 export default function EditarPerfil({ navigation }) {
   const [nome, setNome] = useState("");
   const [bio, setBio] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [senhaAtual, setSenhaAtual] = useState("");
+  const [fotoPerfil, setFotoPerfil] = useState(null);
 
   const auth = getAuth(getApp());
   const firestore = getFirestore(getApp());
@@ -39,31 +55,60 @@ export default function EditarPerfil({ navigation }) {
         const data = docSnap.data();
         setNome(data.nome || "");
         setBio(data.bio || "");
+        if (data.foto) {
+          setFotoPerfil({ uri: data.foto });
+        } else {
+          setFotoPerfil(imagemPadrao);
+        }
+      } else {
+        setFotoPerfil(imagemPadrao);
       }
     };
     loadData();
   }, []);
+
+  const selecionarImagem = () => {
+    launchImageLibrary({ mediaType: 'photo' }, response => {
+      if (!response.didCancel && !response.errorCode) {
+        const imageUri = response.assets[0].uri;
+        setFotoPerfil({ uri: imageUri });
+      }
+    });
+  };
 
   const reautenticar = async () => {
     const credential = EmailAuthProvider.credential(user.email, senhaAtual);
     await reauthenticateWithCredential(user, credential);
   };
 
+  const atualizarPostsComNovoNome = async (userId, novoNome) => {
+    const q = query(collection(firestore, 'posts'), where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
+
+    const batch = writeBatch(firestore);
+    querySnapshot.forEach(docSnap => {
+      batch.update(doc(firestore, 'posts', docSnap.id), { userName: novoNome });
+    });
+
+    await batch.commit();
+  };
+
   const salvarAlteracoes = async () => {
     try {
-      // Verifica se a senha atual foi fornecida e se nova senha foi preenchida
       if (novaSenha.length >= 6 && senhaAtual.length >= 6) {
-        await reautenticar(); // Reautenticar para garantir que a senha atual está correta
-
-        // Atualiza a senha
+        await reautenticar();
         await updatePassword(user, novaSenha);
       }
 
-      // Atualiza dados no Firestore (nome, bio)
+      const foto = fotoPerfil?.uri || null;
+
       await updateDoc(doc(firestore, "users", user.uid), {
         nome,
         bio,
+        foto,
       });
+
+      await atualizarPostsComNovoNome(user.uid, nome);
 
       Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
       navigation.goBack();
@@ -79,6 +124,10 @@ export default function EditarPerfil({ navigation }) {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.content}>
+        <TouchableOpacity onPress={selecionarImagem}>
+          <Image source={fotoPerfil || imagemPadrao} style={styles.avatar} />
+        </TouchableOpacity>
+
         <Text style={styles.title}>Editar Perfil</Text>
 
         <TextInput
@@ -121,7 +170,8 @@ export default function EditarPerfil({ navigation }) {
         <TouchableOpacity style={styles.button} onPress={salvarAlteracoes}>
           <Text style={styles.buttonText}>Salvar</Text>
         </TouchableOpacity>
-        <TouchableOpacity  style={styles.button} navigation={navigation} onPress={() => navigation.goBack()}>
+
+        <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
           <Text style={styles.buttonText}>Voltar</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -138,6 +188,15 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 30,
     paddingBottom: 40,
+    alignItems: "center",
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "#DAA520",
+    marginBottom: 20,
   },
   title: {
     fontSize: 26,
@@ -154,6 +213,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontSize: 16,
     color: "#fff",
+    width: "100%",
   },
   button: {
     backgroundColor: "#DAA520",
@@ -161,6 +221,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     marginTop: 10,
+    width: "100%",
   },
   buttonText: {
     color: "#000",

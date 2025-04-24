@@ -15,7 +15,8 @@ import Direct from './src/screens/Direct';
 import Perfil from './src/screens/Perfil';
 import bemVindo from './src/screens/bemVindo';
 import editarPerfil from './src/screens/editarPerfil';
-import Logout from './src/screens/Logout'; // <-- nova importação
+import Logout from './src/screens/Logout';
+import splashScreen from './src/screens/splashScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -79,6 +80,7 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="splashScreen" component={splashScreen} />
         <Stack.Screen name="bemVindo" component={bemVindo} />
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Cadastro" component={Cadastro} />

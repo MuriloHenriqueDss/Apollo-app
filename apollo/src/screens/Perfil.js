@@ -1,7 +1,13 @@
-//João Gustavo e Murilo Henrique
+// João Gustavo e Murilo Henrique
 
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+} from "react-native";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getApp } from "firebase/app";
@@ -11,6 +17,7 @@ export default function Perfil({ navigation }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
+  const [foto, setFoto] = useState("");
 
   useFocusEffect(
     React.useCallback(() => {
@@ -29,6 +36,7 @@ export default function Perfil({ navigation }) {
               setNome(data.nome);
               setEmail(data.email);
               setBio(data.bio || "");
+              setFoto(data.foto || "");
             }
           }
         } catch (error) {
@@ -43,6 +51,15 @@ export default function Perfil({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Meu Perfil</Text>
+
+      {foto ? (
+        <Image source={{ uri: foto }} style={styles.avatar} />
+      ) : (
+        <Image
+          source={require("../assets/img/0d64989794b1a4c9d89bff571d3d5842.jpg")} 
+          style={styles.avatar}
+        />
+      )}
 
       <View style={styles.infoBox}>
         <Text style={styles.nome}>{nome}</Text>
@@ -64,7 +81,6 @@ export default function Perfil({ navigation }) {
   );
 }
 
-// seus estilos permanecem os mesmos:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -80,8 +96,17 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: 30,
   },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignSelf: "center",
+    borderWidth: 2,
+    borderColor: "#DAA520",
+    marginBottom: 20,
+  },
   infoBox: {
-    backgroundColor: "rgba(40, 40, 40, 0.95)", 
+    backgroundColor: "rgba(40, 40, 40, 0.95)",
     padding: 24,
     borderRadius: 16,
     marginBottom: 40,
@@ -119,4 +144,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 });
-

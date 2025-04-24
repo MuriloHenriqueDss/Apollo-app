@@ -18,5 +18,5 @@ const app = initializeApp(firebaseConfig);
 // Obter o Firestore
 const db = getFirestore(app);
 
-export { db, collection, getDocs, addDoc, query, orderBy, onSnapshot, doc, updateDoc }; // Corrigido
+export { db, collection, getDocs, addDoc, query, orderBy, onSnapshot, doc, updateDoc };
 export default app;

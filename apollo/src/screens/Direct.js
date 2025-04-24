@@ -213,16 +213,19 @@ export default function Direct() {
 
               <ScrollView style={styles.scrollContainer}>
                 <Text style={styles.tituloUsuarios}>Escolha com quem quer conversar</Text>
-                {usuarios.map((usuario) => (
-                  <TouchableOpacity
-                    key={usuario.id}
-                    style={styles.usuarioBox}
-                    onPress={() => iniciarChat(usuario.id)}
-                  >
-                    <Text style={styles.usuarioNome}>{usuario.nome}</Text>
-                  </TouchableOpacity>
-                ))}
+                {usuarios
+                  .filter((usuario) => usuario.id !== auth.currentUser.uid)
+                  .map((usuario) => (
+                    <TouchableOpacity
+                      key={usuario.id}
+                      style={styles.usuarioBox}
+                      onPress={() => iniciarChat(usuario.id)}
+                    >
+                      <Text style={styles.usuarioNome}>{usuario.nome}</Text>
+                    </TouchableOpacity>
+                  ))}
               </ScrollView>
+
             </View>
           )}
         </View>
